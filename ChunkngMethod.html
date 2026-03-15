@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chunking Division Tree 🌳</title>
+    <style>
+        :root { --primary: #2ecc71; --secondary: #f39c12; --accent: #e74c3c; --bg: #f4f7f6; --line: #bdc3c7; --dark: #2c3e50; }
+        body { font-family: 'Comic Sans MS', cursive, sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; color: var(--dark); }
+        
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { margin-bottom: 5px; color: var(--dark); }
+        .subtitle { color: #7f8c8d; font-size: 1rem; font-weight: bold; }
+
+        .dashboard { background: #fff; padding: 25px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); margin-bottom: 30px; border: 4px solid var(--primary); width: 650px; text-align: center; }
+        .input-row { display: flex; justify-content: center; gap: 20px; align-items: center; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; align-items: center; }
+        label { font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; }
+        input { width: 120px; padding: 12px; font-size: 1.2rem; border-radius: 10px; border: 2px solid #ddd; text-align: center; }
+        
+        button { padding: 12px 24px; font-size: 1rem; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; margin: 5px; transition: 0.3s; color: white; }
+        .btn-step { background: var(--primary); }
+        .btn-auto { background: var(--secondary); }
+        .btn-reset { background: var(--accent); }
+        button:hover { transform: translateY(-2px); opacity: 0.9; }
+        button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+
+        #tree-container { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 20px 0; }
+        .node { 
+            background: white; border: 3px solid var(--secondary); border-radius: 15px;
+            padding: 15px 20px; min-width: 220px; text-align: center; margin-bottom: 40px;
+            position: relative; box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+            animation: popIn 0.3s ease-out;
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .node:not(:last-child)::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            width: 4px; height: 40px; background: var(--line); transform: translateX(-50%);
+        }
+
+        .math-step { font-size: 0.85rem; color: #7f8c8d; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; }
+        .current-val { font-size: 1.3rem; font-weight: bold; }
+        .q-badge { position: absolute; right: -85px; top: 50%; transform: translateY(-50%); background: var(--secondary); color: white; padding: 4px 12px; border-radius: 15px; font-size: 0.85rem; font-weight: bold; }
+        
+        .result-box { margin-top: 20px; padding: 20px; border-radius: 15px; background: #fff; width: 500px; text-align: center; border: 4px solid var(--primary); display: none; }
+        .error-msg { color: var(--accent); background: #fee; padding: 10px; border-radius: 10px; margin-top: 10px; display: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Chunking Division Tree 🌳</h1>
+        <div class="subtitle">(Chunk it by 10000 / 5000 / 1000 / 500 / 100 / 50 / 10 / 5 / 2 / 1)</div>
+    </header>
+    
+    <div class="dashboard">
+        <div class="input-row">
+            <div class="input-group">
+                <label>Total Number</label>
+                <input type="number" id="num" value="25850">
+            </div>
+            <div style="font-size: 2rem; margin-top: 15px;">÷</div>
+            <div class="input-group">
+                <label>Divisor</label>
+                <input type="number" id="divisor" value="12">
+            </div>
+        </div>
+        <button class="btn-step" id="step-btn" onclick="handleNextStep()">Next Step</button>
+        <button class="btn-auto" id="auto-btn" onclick="handleAutoSolve()">Auto-Solve</button>
+        <button class="btn-reset" onclick="resetAll()">Reset</button>
+        <div id="error-box" class="error-msg"></div>
+    </div>
+
+    <div id="tree-container"></div>
+    <div id="final-result" class="result-box"></div>
+
+    <script>
+        let steps = [];
+        let currentIdx = 0;
+
+        function resetAll() {
+            document.getElementById('tree-container').innerHTML = '';
+            document.getElementById('final-result').style.display = 'none';
+            document.getElementById('error-box').style.display = 'none';
+            document.getElementById('step-btn').disabled = false;
+            document.getElementById('auto-btn').disabled = false;
+            steps = [];
+            currentIdx = 0;
+        }
+
+        function buildLogic() {
+            const n = parseInt(document.getElementById('num').value);
+            const d = parseInt(document.getElementById('divisor').value);
+            const errorBox = document.getElementById('error-box');
+
+            if (isNaN(n) || isNaN(d)) return false;
+            if (d <= 0) {
+                errorBox.innerText = "⚠️ Divisor must be greater than 0!";
+                errorBox.style.display = "block";
+                return false;
+            }
+
+            steps = [];
+            let tempNum = n;
+            let tempQ = 0;
+
+            // Start Node
+            steps.push({ num: tempNum, q: 0, take: 0, type: 'start' });
+
+            // The extended chunk multipliers
+            const chunks = [10000, 5000, 1000, 500, 100, 50, 10, 5, 2, 1];
+
+            while (true) {
+                let foundChunk = false;
+                
+                for (let multiplier of chunks) {
+                    if (tempNum - multiplier * d >= 0) {
+                        let take = multiplier * d;
+                        tempNum -= take;
+                        tempQ += multiplier;
+                        steps.push({ num: tempNum, q: tempQ, take, mult: multiplier });
+                        foundChunk = true;
+                        break; // Exit loop to re-check from the largest chunk again
+                    }
+                }
+
+                if (!foundChunk) {
+                    steps.push({ num: tempNum, q: tempQ, type: 'final' });
+                    break;
+                }
+            }
+            return true;
+        }
+
+        function handleNextStep() {
+            if (steps.length === 0) { if (!buildLogic()) return; }
+            if (currentIdx < steps.length) {
+                renderNode(steps[currentIdx]);
+                currentIdx++;
+            }
+            if (currentIdx >= steps.length) {
+                document.getElementById('step-btn').disabled = true;
+                document.getElementById('auto-btn').disabled = true;
+            }
+        }
+
+        function handleAutoSolve() {
+            if (steps.length === 0) { if (!buildLogic()) return; }
+            while (currentIdx < steps.length) {
+                renderNode(steps[currentIdx]);
+                currentIdx++;
+            }
+            document.getElementById('step-btn').disabled = true;
+            document.getElementById('auto-btn').disabled = true;
+        }
+
+        function renderNode(step) {
+            const container = document.getElementById('tree-container');
+            const node = document.createElement('div');
+            node.className = 'node';
+
+            if (step.type === 'start') {
+                node.innerHTML = `<div class="current-val">Start: ${step.num.toLocaleString()}</div>`;
+            } else if (step.type === 'final') {
+                node.style.borderColor = "#2ecc71";
+                node.style.background = "#e8f8f5";
+                node.innerHTML = `<div class="current-val">Remainder: ${step.num.toLocaleString()}</div>`;
+                showResult(step);
+            } else {
+                node.innerHTML = `
+                    <div class="math-step">Subtract ${step.take.toLocaleString()} (${step.mult.toLocaleString()}x)</div>
+                    <div class="current-val">${step.num.toLocaleString()} left</div>
+                    <div class="q-badge">+${step.mult.toLocaleString()} Q</div>
+                `;
+            }
+
+            container.appendChild(node);
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+
+        function showResult(step) {
+            const resBox = document.getElementById('final-result');
+            resBox.style.display = "block";
+            
+            // Build summary string
+            const parts = steps.filter(s => s.mult > 0).map(s => s.mult.toLocaleString());
+            const mathString = parts.length > 0 ? parts.join(' + ') + " =" : "";
+
+            resBox.innerHTML = `
+                <div style="font-size: 0.85rem; color: #7f8c8d; max-height: 100px; overflow-y: auto; margin-bottom: 10px;">${mathString}</div>
+                <div style="font-size: 1.8rem; font-weight: bold;">Quotient: ${step.q.toLocaleString()}</div>
+                <div style="color: var(--secondary); font-weight: bold;">Remainder: ${step.num.toLocaleString()}</div>
+            `;
+        }
+    </script>
+</body>
+</html>
